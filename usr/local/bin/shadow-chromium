@@ -1,0 +1,113 @@
+#!/bin/bash
+
+# Usage description
+usage() {
+    cat << EOF
+Usage: $(basename "$0") edit
+Usage: $(basename "$0") run PROFILE [URL]
+
+Description:
+    This script creates shadow copies of the Chromium user data directory and run Chromium in them.
+    This allows the use of throwaway user-configured profiles.
+    Profiles and all their data are discarded when Chromium is closed.
+
+    This script works best on BTRFS or XFS where it can take advantage of reflink copy (cp --reflink=auto).
+    Reflinks allow no-cost copy-on-write (COW) operations where only modified data is written to disk.
+
+Howto:
+    First, create profiles: $(basename "$0") edit.
+    Create as many profiles as needed (Personal, Banking, Shopping, ...).
+    Execute Chromium on a shadow profile: $(basename "$0") run Personal.
+    Chromium will start in your temporary profile.
+    When Chromium is closed, the temporary profile is discarded.
+
+Commands:
+    edit   Edit profiles
+    run    Run Chromium in a temporary profile. Profile is mandatory, URL is optional
+
+Examples:
+    $(basename "$0") edit
+    $(basename "$0") run Personal
+    $(basename "$0") run Disposable https://www.example.com/
+
+Note: The run command requires the profile as its first argument.
+EOF
+}
+
+# Check there is at least 1 argument, it must be 'edit' or 'run'
+if ! ([ $# -ge 1 ] && { [ "$1" = "edit" ] || [ "$1" = "run" ]; }); then
+
+    printf '%s\n\n' "Invalid arguments: must provide 'edit' or 'run' as first argument"
+
+    usage
+    exit 1
+fi
+
+# Get the command, 'edit' or 'run'
+COMMAND=$1
+
+# Remove the command from the arguments
+shift
+
+# If user wants to edit profiles
+#     Do not create a shadow profile
+#     Run chromium in the Default profile
+#
+if [ "${COMMAND}" = "edit" ]; then
+
+    chromium
+
+else
+
+    # Check there is at least 1 more argument, the profile
+    if ! [ $# -ge 1 ]; then
+
+        printf '%s\n\n' "Invalid arguments: must provide a profile for the run command"
+
+        usage
+        exit 1
+    fi
+
+    # Get the profile
+    PROFILE=$1
+
+    # Remove the profile from the arguments
+    shift
+
+    # Build paths
+    if [ "$(which chromium)" = "/snap/bin/chromium" ]; then
+
+        # Use the Chromium snap user common directory
+        CONFIG_BASE_DIR="${HOME}/snap/chromium/common"
+    else
+
+        # Use CHROME_CONFIG_HOME, if empty or not set use XDG_CONFIG_HOME, if empty or not set use HOME/.config
+        CONFIG_BASE_DIR="${CHROME_CONFIG_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}}"
+    fi
+
+    CHROMIUM_USER_DATA_DIR="${CONFIG_BASE_DIR}/chromium"
+    CHROMIUM_PROFILE_DIR=${CHROMIUM_USER_DATA_DIR}/${PROFILE}
+    SHDW_USER_DATA_DIR="${CONFIG_BASE_DIR}/shadow_profiles/${PROFILE}_$(uuidgen)"
+
+    # Make sure profile exists
+    if [ ! -d "${CHROMIUM_PROFILE_DIR}" ]; then
+
+        printf '%s\n\n' "Invalid arguments: Profile ${CHROMIUM_PROFILE_DIR} does not exist."
+
+        usage
+        exit 1
+    fi
+
+    # Create the shadow user data directory
+    mkdir -p "${SHDW_USER_DATA_DIR}"
+
+    # Copy Chromium's user data directory to the shadow user data directory using BTRFS/XFS reflinks if available
+    cp -a --reflink=auto "${CHROMIUM_USER_DATA_DIR}/." "${SHDW_USER_DATA_DIR}/"
+
+    # Launch Chromium in the shadow profile with the rest of the arguments
+    chromium --user-data-dir="${SHDW_USER_DATA_DIR}" --profile-directory="${PROFILE}" $@
+
+    # Remove the shadow profile directory after Chromium closes
+    rm -rf "${SHDW_USER_DATA_DIR}"
+
+fi

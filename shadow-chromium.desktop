@@ -1,0 +1,37 @@
+[Desktop Entry]
+Version=1.0
+Name=Shadow Chromium
+Exec=shadow-chromium run Disposable %U
+Terminal=false
+X-MultipleArgs=false
+Type=Application
+Icon=shadow-chromium.png
+Categories=Network;WebBrowser;
+MimeType=text/html;text/xml;application/xhtml+xml;application/xml;application/vnd.mozilla.xul+xml;application/rss+xml;application/rdf+xml;image/gif;image/jpeg;image/png;x-scheme-handler/http;x-scheme-handler/https;x-scheme-handler/ftp;x-scheme-handler/chrome;video/webm;application/pdf;
+StartupNotify=true
+StartupWMClass=ShadowChromiumClass
+Actions=Personal;Work;Banking;Shopping;Disposable;EditProfiles;
+
+[Desktop Action Personal]
+Name=Personal
+Exec=shadow-chromium run Personal %U
+
+[Desktop Action Work]
+Name=Work
+Exec=shadow-chromium run Work %U
+
+[Desktop Action Banking]
+Name=Banking
+Exec=shadow-chromium run Banking %U
+
+[Desktop Action Shopping]
+Name=Shopping
+Exec=shadow-chromium run Shopping %U
+
+[Desktop Action Disposable]
+Name=Disposable
+Exec=shadow-chromium run Disposable %U
+
+[Desktop Action EditProfiles]
+Name=Edit profiles
+Exec=shadow-chromium edit
